@@ -8,5 +8,6 @@ export const routes = {
     "AdminPanelHome":"/AdminPanelHome",
     "AddProductToStore":"/AddProductToStore",
     "Payment":"/Payment",
+    "Orders":"/Orders",
     "PaymentSuccess":"/PaymentSuccess",
 }

@@ -13,6 +13,7 @@ import AdminPanelHome from "./pages/AdminPanel/AdminPanelHome.jsx";
 import AddProductToStore from "./pages/AdminPanel/AddProductToStorePage.jsx";
 import Payment from "./pages/Payment.jsx";
 import PaymentSuccess from "./pages/PaymentSuccess.jsx";
+import Orders from "./pages/Orders.jsx";
 
 function App() {
 
@@ -23,21 +24,21 @@ function App() {
                 <BrowserRouter>
                     <Routes>
 
-
+                        <Route path={routes.Login} element={
+                            <GuestRoute>
+                                <Login/>
+                            </GuestRoute>
+                        }
+                        >
+                        </Route>
                         <Route element={<Layout/>}>
-                            <Route path={routes.Login} element={
-                                <GuestRoute>
-                                    <Login/>
-                                </GuestRoute>
-                            }
-                            >
-                            </Route>
                             <Route path={routes.Register} element={<Register/>}/>
                             <Route path={routes.HomePage} element={<HomePage/>}></Route>
                             <Route path="/Basket" element={<Basket/>}></Route>
                             <Route path={routes.AdminPanelHome} element={<AdminPanelHome/>}></Route>
                             <Route path={routes.AddProductToStore} element={<AddProductToStore/>}></Route>
                             <Route path={routes.Payment} element={<Payment/>}></Route>
+                            <Route path={routes.Orders} element={<Orders/>}></Route>
                             <Route path={routes.PaymentSuccess} element={<PaymentSuccess/>}></Route>
                         </Route>
                     </Routes>

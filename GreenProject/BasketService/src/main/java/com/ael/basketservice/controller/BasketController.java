@@ -123,12 +123,6 @@ public class BasketController {
         return ResponseEntity.ok(basketProductUnitService.getBasketProductUnitByCustomerId(customerId));
     }
 
-    @PutMapping("/ready-for-checkout/{basketId}")
-    public ResponseEntity<String> readyForCheckout(@PathVariable Integer basketId){
-        basketService.readyForCheckout(basketId);
-        return ResponseEntity.ok("ready-for-checkout");
-    }
-
     @GetMapping("/getBasketStatus/{basketId}")
     public ResponseEntity<BasketStatus> getBasketStatus(@PathVariable Integer basketId){
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();

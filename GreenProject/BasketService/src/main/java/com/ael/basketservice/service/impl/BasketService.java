@@ -154,12 +154,6 @@ public class BasketService implements IBasketService {
         }
     }
 
-
-    @Override
-    public void readyForCheckout(Integer basketId) {
-        basketRepository.readyForCheckout(basketId);
-    }
-
     @Override
     public BasketStatus getBasketStatus(Integer basketId) {
         return basketRepository.getBasketStatus(basketId);

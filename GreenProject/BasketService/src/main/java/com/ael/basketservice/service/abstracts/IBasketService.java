@@ -13,7 +13,6 @@ public interface IBasketService {
     Basket getBasketByCustomerId(Integer customerId);
     Basket getBasketByBasketId(Integer basketId);
     Basket getActiveBasket(Integer customerId);
-    void readyForCheckout(Integer basketId);
     BasketStatus getBasketStatus(Integer basketId);
     void updateBasketStatus(Integer basketId, Integer newStatus);
 }
