@@ -55,12 +55,25 @@ public class ProductService implements IProductService {
                     .productName(productRequest.getProductName())
                     .productPrice(productRequest.getProductPrice())
                     .productQuantity(productRequest.getProductQuantity())
+                    .productModel(productRequest.getProductModel())
+                    .productModelYear(productRequest.getProductModelYear())
+                    .productImageUrl(productRequest.getProductImageUrl())
                     .subcategory(subCategory).build();
 
             productRepository.save(newProduct);
 
             return ProductCreateResponse.builder()
-                    .message("Product created")
+                    .productId(newProduct.getProductId())
+                    .productName(newProduct.getProductName())
+                    .productDescription(newProduct.getProductDescription())
+                    .productPrice(newProduct.getProductPrice())
+                    .productQuantity(newProduct.getProductQuantity())
+                    .productModel(newProduct.getProductModel())
+                    .productModelYear(newProduct.getProductModelYear())
+                    .productImageUrl(newProduct.getProductImageUrl())
+                    .subCategoryId(newProduct.getSubcategory().getSubCategoryId())
+                    .subCategoryName(newProduct.getSubcategory().getSubCategoryName())
+                    .categoryName(newProduct.getSubcategory().getCategory().getCategoryName())
                     .build();
 
         } catch (Exception e) {
@@ -76,16 +89,19 @@ public class ProductService implements IProductService {
 
         // Product listesini ProductGetAllResponse DTO listesine dönüştür
         List<ProductGetAllResponse> response = products.stream()
-                .map(product -> {
-                    ProductGetAllResponse dto = new ProductGetAllResponse();
-                    dto.setProductId(product.getProductId());
-                    dto.setProductName(product.getProductName());
-                    dto.setProductDescription(product.getProductDescription());
-                    dto.setProductPrice(product.getProductPrice());
-                    dto.setProductQuantity(product.getProductQuantity());
-                    dto.setSubCategoryId(product.getSubcategory().getSubCategoryId()); // SubCategoryId'yi al
-                    return dto;
-                })
+                .map(product -> ProductGetAllResponse.builder()
+                        .productId(product.getProductId())
+                        .productName(product.getProductName())
+                        .productDescription(product.getProductDescription())
+                        .productPrice(product.getProductPrice())
+                        .productQuantity(product.getProductQuantity())
+                        .productModel(product.getProductModel())
+                        .productModelYear(product.getProductModelYear())
+                        .productImageUrl(product.getProductImageUrl())
+                        .subCategoryId(product.getSubcategory().getSubCategoryId())
+                        .subCategoryName(product.getSubcategory().getSubCategoryName())
+                        .categoryName(product.getSubcategory().getCategory().getCategoryName())
+                        .build())
                 .collect(Collectors.toList());
 
         return response;
@@ -101,10 +117,14 @@ public class ProductService implements IProductService {
                 .productDescription(product.getProductDescription())
                 .productPrice(product.getProductPrice())
                 .productId(product.getProductId())
+                .productQuantity(product.getProductQuantity())
+                .productModel(product.getProductModel())
+                .productModelYear(product.getProductModelYear())
+                .productImageUrl(product.getProductImageUrl())
                 .subCategoryName(product.getSubcategory().getSubCategoryName())
                 .subCategoryId(product.getSubcategory().getSubCategoryId())
+                .categoryName(product.getSubcategory().getCategory().getCategoryName())
                 .build();
-
 
     }
 
@@ -136,8 +156,12 @@ public class ProductService implements IProductService {
                     .productDescription(updatedProduct.getProductDescription())
                     .productPrice(updatedProduct.getProductPrice())
                     .productQuantity(updatedProduct.getProductQuantity())
+                    .productModel(updatedProduct.getProductModel())
+                    .productModelYear(updatedProduct.getProductModelYear())
+                    .productImageUrl(updatedProduct.getProductImageUrl())
                     .subCategoryId(updatedProduct.getSubcategory().getSubCategoryId())
                     .subCategoryName(updatedProduct.getSubcategory().getSubCategoryName())
+                    .categoryName(updatedProduct.getSubcategory().getCategory().getCategoryName())
                     .build();
 
         } catch (Exception e) {

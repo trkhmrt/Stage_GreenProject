@@ -21,11 +21,12 @@ public class Product {
     private String productDescription;
     private Double productPrice;
     private Integer productQuantity;
+    private String productModel;
+    private String productModelYear;
+    private String productImageUrl;
 
     @ManyToOne
     @JoinColumn(name = "productSubCategoryId")
     private SubCategory subcategory;
-
-
 
 }

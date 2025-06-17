@@ -4,29 +4,101 @@ from mlxtend.frequent_patterns import apriori, association_rules
 from mlxtend.preprocessing import TransactionEncoder
 from collections import defaultdict
 import warnings
+from sqlalchemy import text, create_engine
 warnings.filterwarnings('ignore')
 
 class AprioriRecommender:
-    def __init__(self, min_support=0.01, min_confidence=0.5):
+    def __init__(self, min_support=0.01, min_confidence=0.3, min_lift=1.0):
         self.min_support = min_support
         self.min_confidence = min_confidence
+        self.min_lift = min_lift
         self.frequent_itemsets = None
         self.rules = None
         self.product_mapping = {}
+        self.basket_data = None
         
-    def prepare_data(self, df):
+        # Database configuration
+        self.basket_host = "localhost"
+        self.basket_port = 3309
+        self.basket_database = "basketservicedb"
+        self.product_host = "localhost"
+        self.product_port = 3301
+        self.product_database = "productservicedb"
+        self.username = "root"
+        self.password = "root"
+        
+    def load_basket_data(self):
+        """
+        Load basket data from database
+        """
+        try:
+            # Connect to basket database
+            basket_connection_string = f"mysql+mysqlconnector://{self.username}:{self.password}@{self.basket_host}:{self.basket_port}/{self.basket_database}"
+            basket_engine = create_engine(basket_connection_string)
+            
+            # Connect to product database
+            product_connection_string = f"mysql+mysqlconnector://{self.username}:{self.password}@{self.product_host}:{self.product_port}/{self.product_database}"
+            product_engine = create_engine(product_connection_string)
+            
+            print("📊 Veritabanından sepet verileri yükleniyor...")
+            
+            # Load basket_product_units data
+            basket_query = """
+            SELECT 
+                bpu.basket_id,
+                bpu.product_id,
+                bpu.product_name,
+                bpu.product_model,
+                bpu.product_model_year,
+                bpu.product_quantity,
+                bpu.product_total_price,
+                bpu.product_unit_price,
+                b.customer_id,
+                b.basket_status_id,
+                b.create_date
+            FROM basket_product_units bpu
+            JOIN baskets b ON bpu.basket_id = b.basket_id
+            WHERE b.basket_status_id = 4  -- Only paid baskets
+            ORDER BY bpu.basket_id, bpu.product_id
+            """
+            
+            self.basket_data = pd.read_sql(text(basket_query), basket_engine)
+            
+            print(f"✅ {len(self.basket_data)} adet sepet ürünü yüklendi")
+            print(f"✅ {self.basket_data['basket_id'].nunique()} adet sepet bulundu")
+            print(f"✅ {self.basket_data['product_name'].nunique()} adet farklı ürün bulundu")
+            
+            return self.basket_data
+            
+        except Exception as e:
+            print(f"❌ Veri yükleme hatası: {e}")
+            return None
+        
+    def prepare_data(self, df=None):
         """
         Prepare basket data for Apriori algorithm
+        Focus on "products bought together in the same basket"
         """
-        # Group products by basket_id
+        if df is None:
+            df = self.basket_data
+            
+        if df is None:
+            print("❌ Veri bulunamadı! Önce load_basket_data() çağırın.")
+            return None, None
+        
+        print("🔄 Sepet verileri Apriori algoritması için hazırlanıyor...")
+        
+        # Group products by basket_id (same basket = bought together)
         basket_products = df.groupby('basket_id')['product_name'].apply(list).reset_index()
         
         # Create product mapping for easier reference
         unique_products = df['product_name'].unique()
         self.product_mapping = {i: product for i, product in enumerate(unique_products)}
         
-        # Convert to transaction format
+        # Convert to transaction format (each basket is a transaction)
         transactions = basket_products['product_name'].tolist()
+        
+        print(f"📦 {len(transactions)} adet sepet/transaction hazırlandı")
         
         # Encode transactions
         te = TransactionEncoder()
@@ -35,203 +107,210 @@ class AprioriRecommender:
         
         return df_encoded, transactions
     
-    def fit(self, df):
+    def fit(self, df=None):
         """
-        Train the Apriori model
+        Train the Apriori model based on "products bought together in same basket"
         """
-        print("Preparing data...")
+        if df is None:
+            df = self.basket_data
+            
+        if df is None:
+            print("❌ Veri bulunamadı! Önce load_basket_data() çağırın.")
+            return self
+        
+        print("🔄 Veriler hazırlanıyor...")
         df_encoded, self.transactions = self.prepare_data(df)
         
-        print("Running Apriori algorithm...")
+        print(f"🎯 Apriori algoritması çalıştırılıyor...")
+        print(f"   - Minimum Support: {self.min_support} ({self.min_support*100}%)")
+        print(f"   - Minimum Confidence: {self.min_confidence} ({self.min_confidence*100}%)")
+        print(f"   - Minimum Lift: {self.min_lift}")
+        
+        # Run Apriori algorithm
         self.frequent_itemsets = apriori(df_encoded, 
                                        min_support=self.min_support, 
                                        use_colnames=True)
         
-        print("Generating association rules...")
+        print(f"📊 Frequent Itemsets bulundu: {len(self.frequent_itemsets)}")
+        
+        # Generate association rules
         self.rules = association_rules(self.frequent_itemsets, 
                                      metric="confidence", 
                                      min_threshold=self.min_confidence)
         
-        print(f"Found {len(self.frequent_itemsets)} frequent itemsets")
-        print(f"Generated {len(self.rules)} association rules")
+        # Filter by lift
+        self.rules = self.rules[self.rules['lift'] >= self.min_lift]
+        
+        print(f"🔗 Association Rules oluşturuldu: {len(self.rules)}")
+        
+        # Sort rules by confidence and lift
+        self.rules = self.rules.sort_values(['confidence', 'lift'], ascending=[False, False])
         
         return self
     
-    def get_recommendations(self, products, top_n=10):
+    def get_recommendations(self, selected_products, top_n=10):
         """
-        Get product recommendations based on input products
+        Get product recommendations based on selected products
         """
-        if self.rules is None:
+        if self.rules is None or len(self.rules) == 0:
             return []
         
         recommendations = []
         
-        # Strategy 1: Direct association rules
+        # Find rules where selected products are in antecedents
         for _, rule in self.rules.iterrows():
             antecedents = list(rule['antecedents'])
             consequents = list(rule['consequents'])
             
-            # Check if any of our products are in antecedents
-            if any(product in antecedents for product in products):
-                # Get products in consequents that are not in our input
-                new_products = [p for p in consequents if p not in products]
+            # Check if any selected product is in antecedents
+            if any(product in antecedents for product in selected_products):
+                # Get products from consequents that are not in selected products
+                new_products = [p for p in consequents if p not in selected_products]
+                
                 for product in new_products:
-                    recommendations.append({
-                        'product': product,
-                        'confidence': rule['confidence'],
-                        'support': rule['support'],
-                        'lift': rule['lift'],
-                        'antecedents': list(antecedents),
-                        'consequents': list(consequents),
-                        'type': 'direct_rule'
-                    })
-        
-        # Strategy 2: Partial matches (if we have many products, try subsets)
-        if len(products) > 3:
-            # Try with subsets of products
-            for i in range(len(products) - 1, 0, -1):
-                for subset in self._get_subsets(products, i):
-                    for _, rule in self.rules.iterrows():
-                        antecedents = list(rule['antecedents'])
-                        consequents = list(rule['consequents'])
-                        
-                        if any(product in antecedents for product in subset):
-                            new_products = [p for p in consequents if p not in products]
-                            for product in new_products:
-                                recommendations.append({
-                                    'product': product,
-                                    'confidence': rule['confidence'] * 0.8,  # Slightly lower confidence for partial matches
-                                    'support': rule['support'],
-                                    'lift': rule['lift'],
-                                    'antecedents': list(antecedents),
-                                    'consequents': list(consequents),
-                                    'type': 'partial_match'
-                                })
-        
-        # Strategy 3: Category-based recommendations
-        category_recommendations = self._get_category_recommendations(products)
-        recommendations.extend(category_recommendations)
-        
-        # Strategy 4: Popular products in same baskets
-        popular_recommendations = self._get_popular_in_same_baskets(products)
-        recommendations.extend(popular_recommendations)
-        
-        # Sort by confidence and lift
-        recommendations.sort(key=lambda x: (x['confidence'], x['lift']), reverse=True)
-        
-        # Remove duplicates and return top_n
-        seen = set()
-        unique_recommendations = []
-        for rec in recommendations:
-            if rec['product'] not in seen:
-                seen.add(rec['product'])
-                unique_recommendations.append(rec)
-                if len(unique_recommendations) >= top_n:
-                    break
-        
-        return unique_recommendations
-    
-    def _get_subsets(self, products, size):
-        """Get all subsets of given size from products list"""
-        from itertools import combinations
-        return list(combinations(products, size))
-    
-    def _get_category_recommendations(self, products, top_n=5):
-        """Get recommendations based on product categories"""
-        recommendations = []
-        
-        # Extract categories from product names
-        categories = set()
-        for product in products:
-            if ' - ' in product:
-                category = product.split(' - ')[1] if len(product.split(' - ')) > 1 else 'Unknown'
-                categories.add(category)
-        
-        # Find products in same categories
-        if self.frequent_itemsets is not None:
-            for _, itemset in self.frequent_itemsets.iterrows():
-                itemset_products = list(itemset['itemsets'])
-                if len(itemset_products) == 1:  # Single products
-                    product = itemset_products[0]
-                    if ' - ' in product:
-                        product_category = product.split(' - ')[1] if len(product.split(' - ')) > 1 else 'Unknown'
-                        if product_category in categories and product not in products:
-                            recommendations.append({
-                                'product': product,
-                                'confidence': itemset['support'] * 0.6,  # Lower confidence for category-based
-                                'support': itemset['support'],
-                                'lift': 1.0,
-                                'antecedents': [f"Category: {product_category}"],
-                                'consequents': [product],
-                                'type': 'category_based'
+                    # Check if this product is already recommended
+                    existing_rec = next((r for r in recommendations if r['product'] == product), None)
+                    
+                    if existing_rec is None:
+                        # Create new recommendation
+                        recommendations.append({
+                            'product': product,
+                            'confidence': rule['confidence'],
+                            'lift': rule['lift'],
+                            'support': rule['support'],
+                            'antecedents': antecedents,
+                            'consequents': consequents,
+                            'explanation': f"Bu ürün {', '.join(antecedents)} ile birlikte {rule['confidence']:.1%} olasılıkla satın alınıyor."
+                        })
+                    else:
+                        # Update existing recommendation with higher confidence
+                        if rule['confidence'] > existing_rec['confidence']:
+                            existing_rec.update({
+                                'confidence': rule['confidence'],
+                                'lift': rule['lift'],
+                                'support': rule['support'],
+                                'antecedents': antecedents,
+                                'consequents': consequents,
+                                'explanation': f"Bu ürün {', '.join(antecedents)} ile birlikte {rule['confidence']:.1%} olasılıkla satın alınıyor."
                             })
         
+        # Sort by confidence and return top N
+        recommendations.sort(key=lambda x: x['confidence'], reverse=True)
         return recommendations[:top_n]
     
-    def _get_popular_in_same_baskets(self, products, top_n=5):
-        """Get popular products that appear in same baskets"""
-        recommendations = []
+    def get_basket_insights(self):
+        """
+        Get insights about basket data
+        """
+        if self.basket_data is None:
+            return {}
         
-        # Find baskets containing our products
-        product_baskets = set()
-        for product in products:
-            # This would need access to original data, so we'll use a simplified approach
-            # In a real implementation, you'd query the database
-            pass
+        # Basic statistics
+        total_baskets = self.basket_data['basket_id'].nunique()
+        total_products = self.basket_data['product_name'].nunique()
+        total_transactions = len(self.basket_data)
         
-        # For now, return popular single products
-        if self.frequent_itemsets is not None:
-            single_products = self.frequent_itemsets[self.frequent_itemsets['itemsets'].apply(len) == 1]
-            for _, itemset in single_products.head(top_n).iterrows():
-                product = list(itemset['itemsets'])[0]
-                if product not in products:
-                    recommendations.append({
-                        'product': product,
-                        'confidence': itemset['support'] * 0.5,  # Lower confidence for popular items
-                        'support': itemset['support'],
-                        'lift': 1.0,
-                        'antecedents': ['Popular Product'],
-                        'consequents': [product],
-                        'type': 'popular_product'
-                    })
+        # Average products per basket
+        avg_products_per_basket = total_transactions / total_baskets if total_baskets > 0 else 0
         
-        return recommendations
-    
+        # Basket size distribution
+        basket_sizes = self.basket_data.groupby('basket_id').size()
+        basket_size_distribution = basket_sizes.value_counts().sort_index().to_dict()
+        
+        # Most common products
+        most_common_products = self.basket_data['product_name'].value_counts().head(10).to_dict()
+        
+        return {
+            'total_baskets': total_baskets,
+            'total_products': total_products,
+            'total_transactions': total_transactions,
+            'avg_products_per_basket': avg_products_per_basket,
+            'basket_size_distribution': basket_size_distribution,
+            'most_common_products': most_common_products
+        }
+
     def get_popular_combinations(self, top_n=10):
         """
-        Get most popular product combinations
+        Get popular product combinations
         """
         if self.frequent_itemsets is None:
             return []
         
-        # Sort by support
-        popular = self.frequent_itemsets.sort_values('support', ascending=False)
-        
         combinations = []
-        for _, row in popular.head(top_n).iterrows():
-            combinations.append({
-                'products': list(row['itemsets']),
-                'support': row['support'],
-                'frequency': int(row['support'] * len(self.transactions))
-            })
         
-        return combinations
-    
-    def get_product_stats(self, df):
+        for itemset in self.frequent_itemsets:
+            if len(itemset) >= 2:  # Only combinations with 2+ products
+                products = list(itemset)
+                
+                # Calculate support for this itemset
+                support = self._calculate_support(itemset)
+                frequency = int(support * len(self.basket_data['basket_id'].unique()))
+                
+                combinations.append({
+                    'products': products,
+                    'support': support,
+                    'frequency': frequency,
+                    'explanation': f"Bu {len(products)} ürün {frequency} sepette birlikte bulunuyor."
+                })
+        
+        # Sort by support and return top N
+        combinations.sort(key=lambda x: x['support'], reverse=True)
+        return combinations[:top_n]
+
+    def get_product_stats(self):
         """
-        Get basic statistics about products
+        Get detailed product statistics
         """
-        stats = df.groupby('product_name').agg({
-            'basket_id': 'count',
-            'product_quantity': 'sum',
-            'product_total_price': 'sum'
+        if self.basket_data is None:
+            return None
+        
+        # Group by product and calculate statistics
+        product_stats = self.basket_data.groupby('product_name').agg({
+            'basket_id': 'nunique',  # Number of baskets containing this product
+            'product_quantity': 'sum',  # Total quantity sold
+            'product_total_price': 'sum'  # Total revenue
         }).rename(columns={
             'basket_id': 'basket_count',
             'product_quantity': 'total_quantity',
             'product_total_price': 'total_revenue'
         })
         
-        stats['avg_quantity'] = stats['total_quantity'] / stats['basket_count']
-        stats = stats.sort_values('basket_count', ascending=False)
+        # Calculate additional metrics
+        total_baskets = self.basket_data['basket_id'].nunique()
+        product_stats['basket_percentage'] = (product_stats['basket_count'] / total_baskets) * 100
+        product_stats['avg_quantity_per_basket'] = product_stats['total_quantity'] / product_stats['basket_count']
+        product_stats['avg_price_per_unit'] = product_stats['total_revenue'] / product_stats['total_quantity']
         
-        return stats 
+        # Sort by basket count
+        product_stats = product_stats.sort_values('basket_count', ascending=False)
+        
+        return product_stats
+
+    def _calculate_support(self, itemset):
+        """
+        Calculate support for a given itemset
+        """
+        if self.basket_data is None:
+            return 0
+        
+        total_baskets = self.basket_data['basket_id'].nunique()
+        
+        # Count baskets containing all items in the itemset
+        baskets_with_itemset = set()
+        first_item = True
+        
+        for item in itemset:
+            item_baskets = set(self.basket_data[self.basket_data['product_name'] == item]['basket_id'])
+            
+            if first_item:
+                baskets_with_itemset = item_baskets
+                first_item = False
+            else:
+                baskets_with_itemset = baskets_with_itemset.intersection(item_baskets)
+        
+        return len(baskets_with_itemset) / total_baskets if total_baskets > 0 else 0
+
+    def _get_subsets(self, products, size):
+        """Get all subsets of given size from products list"""
+        from itertools import combinations
+        return list(combinations(products, size)) 

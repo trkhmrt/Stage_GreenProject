@@ -11,5 +11,8 @@ public class ProductRequest {
     private String productDescription;
     private Double productPrice;
     private Integer productQuantity;
+    private String productModel;
+    private String productModelYear;
+    private String productImageUrl;
     private Integer subCategoryId;
 }
