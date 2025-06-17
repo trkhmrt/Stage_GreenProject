@@ -314,10 +314,10 @@ def show_association_rules(recommender):
     st.subheader("📈 İlişki Kuralları Görselleştirmesi")
     
     if len(filtered_rules) > 0:
-        # Create a copy of filtered_rules with frozenset converted to list for JSON serialization
+        # Create a copy of filtered_rules with frozenset converted to strings for JSON serialization
         plot_data = filtered_rules.copy()
-        plot_data['antecedents_str'] = plot_data['antecedents'].apply(lambda x: ', '.join(list(x)))
-        plot_data['consequents_str'] = plot_data['consequents'].apply(lambda x: ', '.join(list(x)))
+        plot_data['antecedents_str'] = plot_data['antecedents'].apply(lambda x: ', '.join(list(x)) if isinstance(x, frozenset) else str(x))
+        plot_data['consequents_str'] = plot_data['consequents'].apply(lambda x: ', '.join(list(x)) if isinstance(x, frozenset) else str(x))
         
         # Confidence vs Lift scatter plot
         fig = px.scatter(

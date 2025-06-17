@@ -1,0 +1,171 @@
+{
+  "table_name": "sub_categories",
+  "columns": [
+    "sub_category_id",
+    "sub_category_name",
+    "category_id"
+  ],
+  "rows": [
+    [
+      1,
+      "Telefon Kılıfı",
+      1
+    ],
+    [
+      2,
+      "Koruma Aksesuarı",
+      1
+    ],
+    [
+      3,
+      "Şarj Aleti",
+      1
+    ],
+    [
+      4,
+      "Tablet Kılıfı",
+      2
+    ],
+    [
+      5,
+      "Stylus Kalem",
+      2
+    ],
+    [
+      6,
+      "Klavye",
+      2
+    ],
+    [
+      7,
+      "Ekran Koruyucu",
+      2
+    ],
+    [
+      8,
+      "Laptop Kılıfı",
+      3
+    ],
+    [
+      9,
+      "Mouse",
+      3
+    ],
+    [
+      10,
+      "Adaptör",
+      3
+    ],
+    [
+      11,
+      "Touchpad",
+      3
+    ],
+    [
+      12,
+      "Kablosuz Kulaklık",
+      4
+    ],
+    [
+      13,
+      "Saat Kayışı",
+      4
+    ],
+    [
+      14,
+      "Kulaklık Kılıfı",
+      4
+    ],
+    [
+      15,
+      "Kablosuz Şarj Ünitesi",
+      4
+    ],
+    [
+      16,
+      "Kablo",
+      4
+    ],
+    [
+      17,
+      "Erkek Giyim",
+      5
+    ],
+    [
+      18,
+      "Kadın Giyim",
+      5
+    ],
+    [
+      19,
+      "Çocuk Giyim",
+      5
+    ],
+    [
+      20,
+      "Ayakkabı",
+      5
+    ],
+    [
+      21,
+      "İç Giyim",
+      5
+    ],
+    [
+      22,
+      "Spor Giyim",
+      5
+    ],
+    [
+      23,
+      "Aksesuar",
+      5
+    ],
+    [
+      24,
+      "Dış Giyim",
+      5
+    ],
+    [
+      25,
+      "Unisex Giyim",
+      5
+    ],
+    [
+      26,
+      "Fiziksel Oyunlar",
+      6
+    ],
+    [
+      27,
+      "Oyun Konsolları",
+      6
+    ],
+    [
+      28,
+      "Konsol Oyunları",
+      6
+    ],
+    [
+      29,
+      "Konsol Aksesuarları",
+      6
+    ],
+    [
+      30,
+      "VR Cihazları",
+      6
+    ],
+    [
+      31,
+      "Taşınabilir Oyun Cihazları",
+      6
+    ],
+    [
+      32,
+      "Akıllı Telefonlar",
+      1
+    ]
+  ],
+  "row_count": 32
+}

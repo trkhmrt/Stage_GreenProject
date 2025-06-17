@@ -1,0 +1,30 @@
+{
+  "backup_date": "2025-06-18T00:50:28.785507",
+  "databases": {
+    "productservicedb": {
+      "database_name": "productservicedb",
+      "backup_date": "2025-06-18T00:50:28.746513",
+      "tables": {
+        "categories": 6,
+        "products": 161,
+        "sub_categories": 32
+      },
+      "total_tables": 3,
+      "total_rows": 199
+    },
+    "basketservicedb": {
+      "database_name": "basketservicedb",
+      "backup_date": "2025-06-18T00:50:28.785239",
+      "tables": {
+        "basket_product_units": 128,
+        "basket_statuses": 6,
+        "baskets": 355
+      },
+      "total_tables": 3,
+      "total_rows": 489
+    }
+  },
+  "total_databases": 2,
+  "total_tables": 6,
+  "total_rows": 688
+}

@@ -1,0 +1,12 @@
+{
+  "table_name": "baskets",
+  "columns": [
+    "basket_id",
+    "create_date",
+    "customer_id",
+    "basket_status_id"
+  ],
+  "rows": [
+    [
+      1,
+      

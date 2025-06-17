@@ -49,9 +49,9 @@ class ContinuousProductAdder:
         try:
             cursor = connection.cursor(dictionary=True)
             query = """
-                SELECT product_id, product_name, product_model, product_model_year, category_id, product_price
+                SELECT product_id, product_name, product_model, product_model_year, product_sub_category_id, product_price
                 FROM products 
-                WHERE category_id = %s
+                WHERE product_sub_category_id = %s
                 ORDER BY product_name
             """
             cursor.execute(query, (category_id,))
@@ -71,7 +71,7 @@ class ContinuousProductAdder:
         
         try:
             cursor = connection.cursor(dictionary=True)
-            query = "SELECT id, customer_id FROM baskets WHERE status = 4"
+            query = "SELECT basket_id, customer_id FROM baskets WHERE basket_status_id = 4"
             cursor.execute(query)
             baskets = cursor.fetchall()
             return baskets
@@ -102,17 +102,17 @@ class ContinuousProductAdder:
             added_count = 0
             
             for basket in selected_baskets:
-                # Add 1-3 related products to each basket
-                num_products = random.randint(1, 3)
+                # Add 2-5 related products to each basket (increased from 1-3)
+                num_products = random.randint(2, 5)
                 selected_products = random.sample(products, min(num_products, len(products)))
                 
                 for product in selected_products:
                     # Check if product already exists in this basket
                     check_query = """
-                        SELECT id FROM basket_product_units 
+                        SELECT basket_product_unit_id FROM basket_product_units 
                         WHERE basket_id = %s AND product_id = %s
                     """
-                    cursor.execute(check_query, (basket['id'], product['id']))
+                    cursor.execute(check_query, (basket['basket_id'], product['product_id']))
                     
                     if not cursor.fetchone():
                         # Add product to basket
@@ -122,12 +122,12 @@ class ContinuousProductAdder:
                             VALUES (%s, %s, %s, %s, %s)
                         """
                         
-                        quantity = random.randint(1, 2)
+                        quantity = random.randint(1, 3)  # Increased from 1-2
                         total_price = product['product_price'] * quantity
                         
                         cursor.execute(insert_query, (
-                            basket['id'],
-                            product['id'],
+                            basket['basket_id'],
+                            product['product_id'],
                             product['product_name'],
                             quantity,
                             total_price
@@ -205,26 +205,76 @@ class ContinuousProductAdder:
         return improvement_rate > 50  # %50'den fazla iyileşme varsa True
     
     def get_related_products(self):
-        """Get related products by category"""
+        """Get related products by category with more diverse combinations"""
         related_products = []
         
-        # Phone + Case combinations
+        # Phone + Case combinations (same brand/model families)
         phones = self.get_products_by_category(1)  # Phones
         cases = self.get_products_by_category(32)  # Cases
         
-        # Console + Game combinations
+        # Console + Game combinations (same platform families)
         consoles = self.get_products_by_category(2)  # Consoles
         games = self.get_products_by_category(3)     # Games
         
-        # Add phone-case pairs
-        for phone in phones[:5]:  # First 5 phones
-            for case in cases[:3]:  # First 3 cases
+        # Add phone-case pairs (same brand/model compatibility)
+        for phone in phones[:8]:  # First 8 phones
+            for case in cases[:5]:  # First 5 cases
                 related_products.extend([phone, case])
         
-        # Add console-game pairs
-        for console in consoles[:3]:  # First 3 consoles
-            for game in games[:5]:    # First 5 games
+        # Add console-game pairs (platform-specific games)
+        for console in consoles[:5]:  # First 5 consoles
+            for game in games[:8]:    # First 8 games
                 related_products.extend([console, game])
+        
+        # Add same brand/model family combinations
+        # iPhone family combinations
+        iphone_phones = [p for p in phones if 'iPhone' in p['product_name']]
+        iphone_cases = [c for c in cases if 'iPhone' in c['product_name']]
+        
+        for phone in iphone_phones[:3]:
+            for case in iphone_cases[:3]:
+                related_products.extend([phone, case])
+        
+        # Samsung family combinations
+        samsung_phones = [p for p in phones if 'Samsung' in p['product_name']]
+        samsung_cases = [c for c in cases if 'Samsung' in c['product_name']]
+        
+        for phone in samsung_phones[:3]:
+            for case in samsung_cases[:3]:
+                related_products.extend([phone, case])
+        
+        # PlayStation family combinations
+        ps_consoles = [c for c in consoles if 'PlayStation' in c['product_name']]
+        ps_games = [g for g in games if any(ps in g['product_name'] for ps in ['Spider-Man', 'God of War', 'Uncharted', 'The Last of Us', 'Horizon', 'Ratchet', 'Ghost'])]
+        
+        for console in ps_consoles[:3]:
+            for game in ps_games[:5]:
+                related_products.extend([console, game])
+        
+        # Xbox family combinations
+        xbox_consoles = [c for c in consoles if 'Xbox' in c['product_name']]
+        xbox_games = [g for g in games if any(xb in g['product_name'] for xb in ['Halo', 'Gears of War', 'Forza', 'Fable', 'State of Decay', 'Sea of Thieves'])]
+        
+        for console in xbox_consoles[:3]:
+            for game in xbox_games[:5]:
+                related_products.extend([console, game])
+        
+        # Add cross-platform popular games
+        popular_games = [g for g in games if any(pop in g['product_name'] for pop in ['GTA', 'FIFA', 'Call of Duty', 'Minecraft', 'Fortnite', 'Red Dead', 'Assassin'])]
+        
+        for console in consoles[:4]:
+            for game in popular_games[:3]:
+                related_products.extend([console, game])
+        
+        # Add multiple games for same console (bundle effect)
+        for console in consoles[:3]:
+            selected_games = random.sample(games, min(3, len(games)))
+            related_products.extend([console] + selected_games)
+        
+        # Add multiple accessories for same phone (accessory bundle)
+        for phone in phones[:3]:
+            selected_cases = random.sample(cases, min(2, len(cases)))
+            related_products.extend([phone] + selected_cases)
         
         return related_products
     
@@ -257,7 +307,7 @@ class ContinuousProductAdder:
             print(f"📦 {len(related_products)} adet ilişkili ürün hazırlandı")
             
             # Add products to baskets
-            success = self.add_products_to_baskets(related_products, related_products, num_baskets=15)
+            success = self.add_products_to_baskets(related_products, related_products, num_baskets=25)
             
             if not success:
                 print("❌ Ürün ekleme başarısız!")
@@ -292,9 +342,9 @@ class ContinuousProductAdder:
             
             iteration += 1
             
-            # Safety check - max 10 iterations
-            if iteration > 10:
-                print("⚠️ Maksimum iterasyon sayısına ulaşıldı (10)")
+            # Safety check - max 20 iterations
+            if iteration > 20:
+                print("⚠️ Maksimum iterasyon sayısına ulaşıldı (20)")
                 break
         
         print("\n🏁 Süreç tamamlandı!")
