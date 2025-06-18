@@ -16,6 +16,7 @@ class AprioriRecommender:
         self.rules = None
         self.product_mapping = {}
         self.basket_data = None
+        self.all_products = None
         
         # Database configuration
         self.basket_host = "localhost"
@@ -29,7 +30,7 @@ class AprioriRecommender:
         
     def load_basket_data(self):
         """
-        Load basket data from database
+        Load basket data from database and all products from product database
         """
         try:
             # Connect to basket database
@@ -42,7 +43,7 @@ class AprioriRecommender:
             
             print("📊 Veritabanından sepet verileri yükleniyor...")
             
-            # Load basket_product_units data
+            # Load ALL basket_product_units data (not just paid baskets)
             basket_query = """
             SELECT 
                 bpu.basket_id,
@@ -58,15 +59,33 @@ class AprioriRecommender:
                 b.create_date
             FROM basket_product_units bpu
             JOIN baskets b ON bpu.basket_id = b.basket_id
-            WHERE b.basket_status_id = 4  -- Only paid baskets
             ORDER BY bpu.basket_id, bpu.product_id
             """
             
             self.basket_data = pd.read_sql(text(basket_query), basket_engine)
             
+            # Load ALL products from product database
+            product_query = """
+            SELECT 
+                product_id,
+                product_name,
+                product_description,
+                product_price,
+                product_quantity,
+                product_model,
+                product_model_year,
+                product_image_url,
+                product_sub_category_id
+            FROM products
+            ORDER BY product_id
+            """
+            
+            self.all_products = pd.read_sql(text(product_query), product_engine)
+            
             print(f"✅ {len(self.basket_data)} adet sepet ürünü yüklendi")
             print(f"✅ {self.basket_data['basket_id'].nunique()} adet sepet bulundu")
             print(f"✅ {self.basket_data['product_name'].nunique()} adet farklı ürün bulundu")
+            print(f"✅ {len(self.all_products)} adet toplam ürün (productservicedb'den)")
             
             return self.basket_data
             
@@ -91,8 +110,24 @@ class AprioriRecommender:
         # Group products by basket_id (same basket = bought together)
         basket_products = df.groupby('basket_id')['product_name'].apply(list).reset_index()
         
+        # Remove or replace None product names in each basket - more robust cleaning
+        def clean_product_names(product_list):
+            cleaned = []
+            for p in product_list:
+                if p is not None and str(p).strip() != '' and str(p).lower() != 'nan':
+                    cleaned.append(str(p).strip())
+            return cleaned if cleaned else ['Unknown Product']
+        
+        basket_products['product_name'] = basket_products['product_name'].apply(clean_product_names)
+        
+        # Filter out empty baskets
+        basket_products = basket_products[basket_products['product_name'].apply(len) > 0]
+        
         # Create product mapping for easier reference
-        unique_products = df['product_name'].unique()
+        all_products = []
+        for products in basket_products['product_name']:
+            all_products.extend(products)
+        unique_products = list(set(all_products))
         self.product_mapping = {i: product for i, product in enumerate(unique_products)}
         
         # Convert to transaction format (each basket is a transaction)

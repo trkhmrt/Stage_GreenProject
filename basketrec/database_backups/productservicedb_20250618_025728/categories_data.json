@@ -1,0 +1,58 @@
+{
+  "table_name": "categories",
+  "columns": [
+    "category_id",
+    "category_name"
+  ],
+  "rows": [
+    [
+      1,
+      "Telefon"
+    ],
+    [
+      2,
+      "Tablet"
+    ],
+    [
+      3,
+      "Bilgisayar"
+    ],
+    [
+      4,
+      "Aksesuar"
+    ],
+    [
+      5,
+      "Giyim"
+    ],
+    [
+      6,
+      "Eğlence"
+    ],
+    [
+      7,
+      "Gıda & İçecek"
+    ],
+    [
+      8,
+      "Ev & Yaşam"
+    ],
+    [
+      9,
+      "Spor & Fitness"
+    ],
+    [
+      10,
+      "Müzik & Ses"
+    ],
+    [
+      11,
+      "Otomotiv"
+    ],
+    [
+      12,
+      "Eğitim & Ofis"
+    ]
+  ],
+  "row_count": 12
+}

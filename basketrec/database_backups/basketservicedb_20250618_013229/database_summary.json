@@ -1,0 +1,11 @@
+{
+  "database_name": "basketservicedb",
+  "backup_date": "2025-06-18T01:32:29.457977",
+  "tables": {
+    "basket_product_units": 3870,
+    "basket_statuses": 6,
+    "baskets": 1735
+  },
+  "total_tables": 3,
+  "total_rows": 5611
+}

@@ -1,0 +1,11 @@
+{
+  "database_name": "productservicedb",
+  "backup_date": "2025-06-18T01:22:13.749587",
+  "tables": {
+    "categories": 7,
+    "products": 187,
+    "sub_categories": 33
+  },
+  "total_tables": 3,
+  "total_rows": 227
+}

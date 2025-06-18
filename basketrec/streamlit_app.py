@@ -42,9 +42,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-@st.cache_resource
 def load_apriori_model():
-    """Load and cache the Apriori model"""
+    """Load the Apriori model with fresh data"""
     with st.spinner("🤖 Apriori modeli yükleniyor..."):
         recommender = AprioriRecommender(
             min_support=0.02,
@@ -75,7 +74,7 @@ def main():
     # Header
     st.markdown('<h1 class="main-header">🛒 Basket Recommendation System</h1>', unsafe_allow_html=True)
     
-    # Load model
+    # Load model with fresh data
     recommender = load_apriori_model()
     if recommender is None:
         st.stop()
@@ -188,22 +187,65 @@ def show_recommendations(recommender):
     """Show product recommendations"""
     st.header("🎯 Ürün Önerileri")
     
-    # Get available products
-    if recommender.basket_data is not None:
+    # Get available products from ALL products in productservicedb
+    if hasattr(recommender, 'all_products') and recommender.all_products is not None:
+        available_products = sorted(recommender.all_products['product_name'].unique())
+        st.info(f"📦 Toplam {len(available_products)} ürün mevcut (productservicedb'den)")
+    elif recommender.basket_data is not None:
         available_products = sorted(recommender.basket_data['product_name'].unique())
+        st.warning(f"⚠️ Sadece sepet verilerinden {len(available_products)} ürün bulundu")
     else:
         available_products = []
+        st.error("❌ Hiç ürün bulunamadı!")
     
     # Product selection
     st.subheader("🔍 Ürün Seçin")
     
     # Search box
-    search_term = st.text_input("Ürün ara:", placeholder="Örn: PlayStation, Xbox, Spider-Man...")
+    search_term = st.text_input("Ürün ara:", placeholder="Örn: PlayStation, MacBook, Nike, Philips...")
     
     if search_term:
         filtered_products = [p for p in available_products if search_term.lower() in p.lower()]
+        st.write(f"🔍 '{search_term}' için {len(filtered_products)} ürün bulundu")
     else:
         filtered_products = available_products
+    
+    # Show product categories for better organization
+    if hasattr(recommender, 'all_products') and recommender.all_products is not None:
+        st.subheader("📂 Ürün Kategorileri")
+        
+        # Get product categories
+        product_categories = {}
+        for _, product in recommender.all_products.iterrows():
+            category = "Diğer"
+            if any(keyword in product['product_name'].lower() for keyword in ['playstation', 'xbox', 'nintendo', 'gta', 'call of duty', 'mario', 'controller']):
+                category = "🎮 Gaming"
+            elif any(keyword in product['product_name'].lower() for keyword in ['macbook', 'dell', 'lenovo', 'mouse', 'hub', 'stand']):
+                category = "💻 Computer"
+            elif any(keyword in product['product_name'].lower() for keyword in ['philips', 'bosch', 'siemens', 'arçelik', 'beko', 'ikea', 'bellona', 'çilek']):
+                category = "🏠 Home"
+            elif any(keyword in product['product_name'].lower() for keyword in ['bowflex', 'concept2', 'peloton', 'trek', 'specialized']):
+                category = "🏃‍♂️ Fitness"
+            elif any(keyword in product['product_name'].lower() for keyword in ['sony', 'bose', 'jbl']):
+                category = "🎵 Audio"
+            elif any(keyword in product['product_name'].lower() for keyword in ['garmin', 'blackvue', 'carlinkit']):
+                category = "🚗 Automotive"
+            elif any(keyword in product['product_name'].lower() for keyword in ['nike', 'adidas', 'puma', 'zara', 'h&m', 'mavi']):
+                category = "👕 Fashion"
+            elif any(keyword in product['product_name'].lower() for keyword in ['samsung', 'iphone', 'huawei', 'xiaomi']):
+                category = "📱 Phone"
+            elif any(keyword in product['product_name'].lower() for keyword in ['çay', 'fincan', 'kaşık', 'tabak']):
+                category = "☕ Tea"
+            
+            if category not in product_categories:
+                product_categories[category] = []
+            product_categories[category].append(product['product_name'])
+        
+        # Display categories
+        for category, products in product_categories.items():
+            with st.expander(f"{category} ({len(products)} ürün)"):
+                for product in sorted(products):
+                    st.write(f"• {product}")
     
     # Product selection
     selected_products = st.multiselect(
