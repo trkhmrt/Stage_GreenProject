@@ -9,6 +9,10 @@ from mlxtend.preprocessing import TransactionEncoder
 import json
 from datetime import datetime
 import logging
+try:
+    import ipdb as pdb  # Better debugger if available
+except ImportError:
+    import pdb  # Fallback to standard pdb
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -336,8 +340,21 @@ def get_product_details(product_names):
 def recommend():
     try:
         data = request.get_json()
-        products = data.get('products', [])
+        products_data = data.get('products', [])
         top_n = data.get('top_n', 5)
+        
+        # Extract product names from the new format
+        if isinstance(products_data, list) and len(products_data) > 0:
+            # Check if it's the new format with product objects
+            if isinstance(products_data[0], dict) and 'productName' in products_data[0]:
+                products = [item['productName'] for item in products_data]
+            else:
+                # Old format - direct product names
+                products = products_data
+        else:
+            products = []
+        
+        print(f"Extracted product names: {products}")
         
         if not recommender.is_fitted:
             return jsonify({'error': 'Model not fitted. Please call /fit endpoint first.'}), 400
@@ -348,7 +365,9 @@ def recommend():
         recommendations = recommender.get_recommendations(products, top_n)
         
         if not recommendations:
-            return jsonify({'recommendations': [], 'message': 'No recommendations found for the given products'})
+            response_data = {'recommendations': [], 'message': 'No recommendations found for the given products'}
+            print(f"API Response (No Recommendations): {json.dumps(response_data, indent=2, ensure_ascii=False)}")
+            return jsonify(response_data)
         
         # Create a mapping of product names to recommendation data
         recommendation_map = {}
@@ -390,7 +409,10 @@ def recommend():
                 }
                 enhanced_recommendations.append(enhanced_product)
         
-        return jsonify({'recommendations': enhanced_recommendations})
+        response_data = {'recommendations': enhanced_recommendations}
+        print(f"API Response: {json.dumps(response_data, indent=2, ensure_ascii=False)}")
+        
+        return jsonify(response_data)
         
     except Exception as e:
         logger.error(f'Recommendation error: {e}')
@@ -505,5 +527,5 @@ if __name__ == '__main__':
     else:
         logger.warning("⚠️ Model fit edilemedi, manuel fit gerekli")
     
-    logger.info("🌐 API http://localhost:5000 adresinde çalışıyor")
-    app.run(host='0.0.0.0', port=5000, debug=True) 
+    logger.info("🌐 API http://localhost:9000 adresinde çalışıyor")
+    app.run(host='0.0.0.0', port=9000, debug=False)
